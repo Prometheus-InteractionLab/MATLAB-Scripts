@@ -1,0 +1,55 @@
+function [data_Spot data_Spot2]=function_excel_strings_edit(cn)
+%End result is cell array of strings, for example: range='A1:C4' Where A is the first letter and C is the
+%second letter
+% Require manual input of number of variables into variable num_var
+
+cn=cn/2; %Divides to seperate motored from fired, added 5 to zero to column F
+var_num =6; 
+%While loop for number of variables using. Requires manual input
+i=0;
+while i<var_num;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%For Data Ranges%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    end_first_number=ceil((6+cn+(3+cn)*i)/26);    
+    end_first=first_letters(end_first_number); %Grabs the first letter from array.
+    
+    end_second_number=mod(6+cn+(3+cn)*i,26);
+    if end_second_number==0
+        end_second_number=26;
+    end
+    end_second=second_letters(end_second_number); %Grabs second letter from array.
+    range=strcat(strcat(start_first,start_second,'3'), ':', strcat(end_first,end_second,'2882')); %Puts the letters together for the range output for data.
+    data_Spot(i+1)=range; %Creates a vector of the range strings
+    
+    start_first=first_letters(floor((10+cn+(cn+3)*i)/26)+1);
+    if mod((10+cn+(cn+3)*i),26)==0
+        start_second=second_letters(26);
+    else
+        start_second= second_letters(mod((10+cn+(cn+3)*i),26));
+    end
+    i=i+1; %Increment
+end
+
+start_first=first_letters(1);
+start_second=second_letters(5);
+i=0;
+while i<var_num;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%For Data Ranges%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    end_first_number=ceil((6+(3+cn)*i)/26);    
+    end_first=first_letters(end_first_number); %Grabs the first letter from array.
+    
+    end_second_number=mod(6+(3+cn)*i,26);
+    if end_second_number==0
+        end_second_number=26;
+    end
+    end_second=second_letters(end_second_number); %Grabs second letter from array.
+    range=strcat(strcat(start_first,start_second,'3'), ':', strcat(end_first,end_second,'2882')); %Puts the letters together for the range output for data.
+    data_Spot2(i+1)=range; %Creates a vector of the range strings
+    
+    start_first=first_letters(ceil((8+cn+(3+cn)*i)/26));
+    if mod((8+cn+(cn+3)*i),26)==0
+        start_second=second_letters(26);
+    else
+        start_second= second_letters(mod((8+cn+(cn+3)*i),26));
+    end
+    i=i+1; %Increment
+end

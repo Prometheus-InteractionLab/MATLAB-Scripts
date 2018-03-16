@@ -1,0 +1,76 @@
+%  This function computes apparent heat release rates from cylinder
+%  pressure data.
+%
+%          Name:  compQ.m
+%    Written by:  Chuck Mueller and Mark Musculus
+%          Date:  990430
+%  Last revised:  010403
+%
+%     Called by:  pressure.m 
+%
+%   lab = lab number (165 or 168)
+%     S = engine speed [rpm]
+%		V = combustion chamber volume [m^3]
+%    CA = vector of crank angle data [CAD]
+%  pcyl = matrix of cylinder pressure data [bar]
+%  ncmp = approx. motoring polytropic exponent for compression stroke
+%  nbrn = approx. polytropic exponent for combustion products
+%  navg = average polytropic exponent used for calculation of AHRR
+%   IVC = crank angle of intake valve closure
+%   EVO = crank angle of exhaust valve opening
+% dpdCA = matrix of pressure derivative data [Pa/rad]
+% dQdCA = matrix of heat release data [J/CAD]
+%
+%function [dpdCA,dQdCA] = compQ(lab,S,V,CA,pcyl,ncmp,nbrn);
+
+function [SOI,dpraildCA,pfiltA] = compSOIdelay(lab,S,CA,prail,firecyc)
+
+% Initialize
+labinfo; % Load engine and other lab parameters
+N = size(prail);
+dpraildCAtmp = zeros(1,N(2));
+dpraildCA = zeros(N(1),N(2));
+
+
+% value gets to unity, the larger the AHRR that will be calculated
+
+% Set up to filter the pressure data in TIME (as opposed to crank angle space)
+
+Tick = CA(2)-CA(1); % shaft encoder resolution [CAD]
+FD = 1; % use finite diff's to est. deriv. rather than polynomial fit
+k = 2;
+%CMPM Fix for 1.4 degree encoder
+%fNyq = 6.*S; Nyquist frequency [Hz]
+fNyq = 3/Tick.*S; % Nyquist frequency [Hz]
+
+% Main loop
+
+for m = 1:N(1)
+   
+   filterit = 1;
+   %filterit=0;
+	if (filterit)
+      [pfilt,t,t,t,t,t] = FTLowP1D(CA,prail(m,:),pad,f1./fNyq,f2./fNyq,c); % filter 
+   else
+      pfilt = prail(m,:);
+   end;
+   pfiltA(m,:) = pfilt;
+	if (~FD) % use polynomial fits
+   	pdeg = 2; 
+	   for i = k+1:N-k
+   		irng = i-k:i+k;
+    		ppCA = polyfit(CA(irng),pfilt(irng),pdeg);
+	     	pdpraildCA = polyder(ppCA);
+   	  	dpraildCAtmp(i) = polyval(pdpraildCA,CA(i)); % [bar/CAD]
+      end;
+	else % use finite difference method
+   	periodic = 1;
+      dpraildCAtmp = FDderiv1(CA,pfilt,periodic); % [bar/CAD]
+	end;
+ 
+   dpraildCA(m,:) = dpraildCAtmp;
+   
+end;
+[SOI, EOI, EOMI] = compSOI(CA,-dpraildCA(firecyc,:),-100);
+
+return;

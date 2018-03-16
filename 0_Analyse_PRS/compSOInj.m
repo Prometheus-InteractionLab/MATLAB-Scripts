@@ -1,0 +1,132 @@
+%  This progam determines the start of combustion (SOC) and the end
+%  of combustion (EOC) given a matrix of heat release rate data 
+%  where each row represents a single cycle.
+%
+%	SOC is defined as the crank angle at which dQdCA first becomes positive
+%  after the start of injection.  EOC is defined as the crank angle at 
+%  which dQdCA first becomes negative after the peak heat release rate is
+%  attained.
+%
+%          Name:  compSOC.m
+%    Written by:  Chuck Mueller and Mark Musculus
+%          Date:  000824
+%  Last revised:  010419
+%
+%    CA = vector of crank angle data [CAD]
+% dQdCA = matrix of heat release data [J/CAD]
+%  SOIi = logical SOI [CAD]
+%
+%function [SOC,EOC] = compSOC(CA,dQdCA,SOIi);
+%CLG% 070319 - Add start of main combustion (SOMC)
+
+function [SOC,EOC,SOMC] = compSOInj(CA,dQdCA,SOIi,f1)
+
+% Initialize
+
+dbug = 0;
+if f1<1000
+    thrS = 2;
+else
+    thrS = 15; % HR threshold for determination of SOC [J/CAD]
+end
+thrSM = 15.0; % HR threshold for determination of SOMC [J/CAD]
+thrE = 5.0; % HR threshold for determination of EOC [J/CAD]
+dly  = 1.5; % delay after SSE before start searching for SOC & EOC [CAD] 
+if (dbug) 
+  	fprintf('\nHR threshold value for determination of SOInj = %.1f J/CAD',thrS);
+  	
+end;
+N = size(dQdCA);
+SOC = zeros(N(1),1); EOC = zeros(N(1),1); SOMC = zeros(N(1),1);
+
+% Main loop
+
+for k = 1:N(1)
+   % SET UP
+   % determine iSOIi = minimum index into CA where CA >= SOIi
+   iSOIi = min(find(CA >= SOIi));
+   % determine irng = range of indices into CA >= dly CAD after SOIi
+   %CMPM 060307 fix for 1/4 degree encoder
+   %irng = [iSOIi+(2.*dly):N(2)];
+   irng = find(CA>SOIi+dly);
+   % determine HR = dQdCA values from kth engine cycle over irng
+   HR = dQdCA(k,irng);
+   % determine CAtmp = crank angles over irng (i.e., >= dly CAD after SOIi)
+   CAtmp = CA(irng);
+   % determine iHRmx = smallest index into HR where HR attains its max. value
+   iHRmx = min(find(HR == max(HR)));
+   
+   % DETERMINE SOC
+   % iS = indices into HR that are < iHRmx and that have HR < thrS
+   iStmp = find(HR < thrS);
+   iS = iStmp(find(iStmp < iHRmx));
+   %CLG% - make sure iS is sequential and there are no jumps to other parts of HR
+   iSgood = iS(1);
+   %% Finds the first zero crossing 
+   i=2;
+   done=i>length(iS);
+   while ~done
+      if (iS(i) == iS(i-1)+1) iSgood = [iSgood iS(i)];
+      else done=1;
+      end
+      i=i+1;
+      if i>length(iS) done=1; end
+   end
+   
+   %% finds the zero crossing closest to max ARHH
+%    for i=2:length(iS)
+%       %if (iS(i) == iS(i-1)+1) iSgood(i) = iS(i); end
+%       if (iS(i) == iS(i-1)+1) iSgood = [iSgood iS(i)]; end
+%    end
+   % iSx = index into HR just before HR transitioned to > thrS and stayed 
+   %       above thrS up to iHRmx
+   iSx = iSgood(max(find(HR(iSgood+1) >= thrS)));
+	SOC(k) = ( thrS.*(CAtmp(iSx+1) - CAtmp(iSx)) + ...
+              CAtmp(iSx).*HR(iSx+1) - CAtmp(iSx+1).*HR(iSx)) ./ ...
+              (HR(iSx+1) - HR(iSx)); % [CAD]
+           
+   %CLG% DETERMINE START OF MAIN COMBUSTION
+   % iSM = indices into HR that are < iHRmx and > iSx
+   iSMtmp1 = find(HR);
+   iSMtmp2 = iSMtmp1(find(iSMtmp1 < iHRmx));
+   iSM = iSMtmp2(find(iSMtmp2 > iSx));
+   % iSMx = index into HR that has the first positive derivative value
+   %        after the cool flame (EOCF indicated by negative derivatives)
+   diffHR = diff(HR(iSM));
+   iSMx = iSM(max(find(diffHR<0))+1);
+   SOMC(k) = NaN;
+   if iSMx SOMC(k) = CAtmp(iSMx); end
+%   SOMC(k) = CAtmp(iSMx);      
+   
+   % DETERMINE EOC
+   % iE = indices into HR that are > iHRmx and that have HR < thrE
+   iEtmp = find(HR < thrE);
+   iE = iEtmp(find(iEtmp > iHRmx));
+   % iEx = index into HR just before HR first transitioned to < thrE 
+   iEx = iE(min(find(HR(iE-1) >= thrE)));
+   if (isempty(iEx)) % HR never went from >thrE to <thrE so just use last index
+      iEx = length(CAtmp);
+      EOC(k) = max(CAtmp); % [CAD]
+   else   
+   	EOC(k) = ( thrE.*(CAtmp(iEx) - CAtmp(iEx-1)) + ...
+                 CAtmp(iEx-1).*HR(iEx) - CAtmp(iEx).*HR(iEx-1) ) ./ ...
+   	          (HR(iEx) - HR(iEx-1)); % [CAD]
+   end;
+   
+	if (dbug)
+        figure(10)
+      clf; plot(CAtmp,HR,'k-'); hold on; grid on; axis([-50 50 -40 250]);
+      xlabel('CRANK ANGLE  [CAD]'); ylabel('HR  [J/CAD]');
+      plot(CAtmp(iS),HR(iS),'g.','MarkerSize',8);
+      plot(CAtmp(iSx),HR(iSx),'bo','MarkerSize',8);
+      plot(CAtmp(iE),HR(iE),'k.','MarkerSize',8);
+      plot(CAtmp(iEx),HR(iEx),'ro','MarkerSize',8);
+		fprintf('\nCA immed. before HR becomes > thrS = %.1f CAD',CAtmp(iSx));
+   	fprintf('\nSOC(%d) = %.3f CAD\n',k,SOC(k));
+		fprintf('\nCA immed. before HR becomes < thrE = %.1f CAD',CAtmp(iEx));
+   	fprintf('\nEOC(%d) = %.3f CAD\n\n',k,EOC(k));
+    pause();
+	end;
+end;
+
+return;

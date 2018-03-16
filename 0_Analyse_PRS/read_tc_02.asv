@@ -1,0 +1,64 @@
+%%
+[filename,pathname] = uigetfile('*.prs','Select files','Multiselect','on');
+filename = cellstr(filename);
+
+dayname = filename{1}(1:6)
+runname = filename{1}(end-4);
+
+[data,N,SPC] = function_read_prsfile(pathname,filename{1});
+% prsdata = function_read_prsdata(data,N,SPC);
+
+NC = N(2)./SPC; % number of cycles in data file, SPC = samples per cycle
+
+motorcyc = 1:2:NC;
+firecyc = 2:2:NC;
+
+% ca = reshape(data(1,:),SPC,NC)';
+% pcyl = reshape(data(2,:),SPC,NC)';
+% injComm = reshape(data(4,:),SPC,NC)';
+% prail = reshape(data(5,:),SPC,NC)';
+% injCurr = reshape(data(6,:),SPC,NC)';
+
+%%
+list_tc={'T0','U1','U3','D1','D3','L1','L3','R1','R3'};
+
+figure,set(gcf,'position',[284 49 1076 929],'color','w')
+
+for jj=1:length(list_tc)
+    [prschan,tc_m_m] = function_read_prschannel(data,jj+7,motorcyc,SPC,NC,100,0);
+    tc_m_m = tc_m_m - mean(tc_m_m(100:105));
+    
+    [prschan,tc_f_m] = function_read_prschannel(data,jj+7,firecyc,SPC,NC,100,0);
+    tc_f_m = tc_f_m - mean(tc_f_m(100:105));    
+
+    subplot(3,3,jj),grid on,hold on
+    plot(ca(1,:),tc_m_m,'color',[1 1 1]*0.7),plot(ca(1,:),tc_f_m,'color',[1 1 1]*0.0)
+    set(gca,'box','on','linewidth',1,'fontsize',12,'fontname','eras light itc'),title(list_tc{jj})
+    xlabel('Crank angle [deg]')
+    ylabel('\DeltaT [K]')
+    set(gca,'ylim',[-1 5])
+end
+
+load(fullfile(pathname,regexprep(filename{1},'prs','mat')));
+pcyl_m_m = mean(rundata.pcyl(motorcyc,:),1);
+pcyl_f_m = mean(rundata.pcyl(firecyc,:),1);
+
+mcyl = rundata.rhotdc*min(rundata.volume(1,:))*1000/rundata.zfg_tdc;
+mcyl = rundata.rhobdc*max(rundata.volume(1,:))*1000;
+figure,plot(pcyl_m_m.*rundata.volume(1,:),tc_m_m)
+% saveas(gcf,fullfile(pathname,['TC_' dayname runname '.fig']),'fig')
+% saveas(gcf,fullfile(pathname,['TC_' dayname runname '.emf']),'emf')
+ 
+%%
+% prompt = {'O2 concentration (% vol.):'};
+% dlg_title = 'Input for TDC conditions';
+% num_lines = 1;
+% answer = inputdlg(prompt,dlg_title,num_lines,{'';''});
+% N2_properties_nist;
+% O2_properties_nist;
+% AR_properties_nist;
+% AIR_properties_nist;
+% pco2=yo2/100;
+% ndil = (0.21/pco2-1); % Nb of N2 moles for 1 mole or air
+% Mgf = (ndil*28+Mair)/(1+ndil);
+% r_fg = 8.314/Mgf*1000;
